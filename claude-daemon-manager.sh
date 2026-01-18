@@ -90,19 +90,20 @@ start_daemon() {
             # Format: "HH:MM" - assume today
             STOP_TIME="$(date '+%Y-%m-%d') $STOP_TIME:00"
         fi
-        
+
         # Convert to epoch timestamp
         STOP_EPOCH=$(date -d "$STOP_TIME" +%s 2>/dev/null || date -j -f "%Y-%m-%d %H:%M:%S" "$STOP_TIME" +%s 2>/dev/null)
-        
+
         if [ $? -ne 0 ]; then
             print_error "Invalid stop time format. Use 'HH:MM' or 'YYYY-MM-DD HH:MM'"
             return 1
         fi
-        
-        # Validate that stop time is after start time
+
+        # Handle midnight-spanning schedules (e.g., 9pm start, 1am stop)
         if [ -n "$START_EPOCH" ] && [ "$STOP_EPOCH" -le "$START_EPOCH" ]; then
-            print_error "Stop time must be after start time"
-            return 1
+            # Stop time is earlier in the day than start time, so it must be the next day
+            STOP_EPOCH=$((STOP_EPOCH + 86400))
+            print_status "Detected midnight-spanning schedule - stop time adjusted to next day"
         fi
         
         # Store stop time
